@@ -1,0 +1,19 @@
+syntax = "proto3";
+package summation;
+
+option go_package = "server/summation";
+
+service SummationService {
+    rpc CalculateSum (SummationRequest) returns (SummationResponse);
+}
+
+// Summation request message
+message SummationRequest {
+  int32 a = 1;
+  int32 b = 2;
+}
+
+// Summation response message
+message SummationResponse {
+  int32 result = 1;
+}
