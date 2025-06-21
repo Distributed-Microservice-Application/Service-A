@@ -6,12 +6,8 @@ import (
 	"log"
 	"time"
 
-	db "service-a/internal/database"
-	Kafka "service-a/internal/kafka"
-	"service-a/internal/outbox"
 	pb "service-a/internal/server/summation"
 
-	_ "github.com/lib/pq"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -29,33 +25,6 @@ var (
 
 func main() {
 	flag.Parse()
-
-	// ---------------------- Set up Database connection ----------------------
-	database := db.INIT_DB()
-	if database == nil {
-		log.Fatal("Failed to initialize database connection")
-	}
-	defer database.Close()
-
-	// ---------------------- Set up Outbox components ----------------------
-
-	// Initialize repository
-	repo := outbox.NewRepository(database)
-
-	// Initialize Kafka writer (will be used by OutboxPublisher)
-	writer := Kafka.NewKafkaWriter("user-events")
-	if writer == nil {
-		log.Fatal("Failed to create Kafka writer")
-	}
-	defer writer.Publisher.Close()
-
-	// Initialize OutboxPublisher with 3-second check interval
-	publisher := outbox.NewOutboxPublisher(repo, writer, 3*time.Second)
-
-	// Start the OutboxPublisher in a goroutine
-	publisherCtx, publisherCancel := context.WithCancel(context.Background())
-	defer publisherCancel()
-	go publisher.Start(publisherCtx)
 
 	// ---------------------- Set up gRPC connection ----------------------
 	conn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -79,14 +48,6 @@ func main() {
 	}
 	log.Printf("Received sum from gRPC server: %d", result.Result)
 
-	// ---------------------- Save result to Outbox ----------------------
-
-	err = repo.SaveOutbox(ctx, outbox.NewOutbox(result.Result))
-	if err != nil {
-		log.Fatalf("Failed to save to outbox: %v", err)
-	}
-	log.Println("Successfully saved result to outbox table")
-
-	// Sleep for a short duration to allow the outbox publisher to process the message
-	time.Sleep(2 * time.Second)
+	// The server will handle saving the result to outbox and publishing to Kafka
+	log.Println("Client completed successfully. The server has processed the request and will publish the result to Kafka via the outbox pattern.")
 }
