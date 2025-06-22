@@ -6,13 +6,13 @@ help: ## Show this help message
 	@echo 'Targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-start-kafka: ## Start Kafka and Zookeeper using Docker Compose
+start: ## Start Kafka and Zookeeper using Docker Compose
 	docker compose up -d
 	@echo "Waiting for Kafka to be ready..."
 	@sleep 10
 	@echo "Kafka is ready!"
 
-stop-kafka: ## Stop Kafka and Zookeeper
+stop: ## Stop Kafka and Zookeeper
 	docker compose down
 
 create-topic: ## Create the user-events topic
