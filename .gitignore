@@ -2,3 +2,7 @@
 .env
 .env.*
 !.env.example
+
+## Node modules
+node_modules/
+jspm_packages/
