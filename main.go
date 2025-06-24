@@ -5,6 +5,7 @@ import (
 	"log"
 	DB "service-a/internal/database"
 	kafkaStructure "service-a/internal/kafka"
+	"service-a/internal/metrics"
 	"service-a/internal/outbox"
 	"service-a/internal/server"
 	"time"
@@ -33,10 +34,15 @@ func main() {
 	// Initialize OutboxPublisher with 3-second check interval
 	publisher := outbox.NewOutboxPublisher(repo, writer, 3*time.Second)
 
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Start the OutboxPublisher in a goroutine
-	publisherCtx, publisherCancel := context.WithCancel(context.Background())
-	defer publisherCancel()
-	go publisher.Start(publisherCtx)
+	go publisher.Start(ctx)
+
+	// Start the HTTP server for Prometheus metrics
+	metrics.StartMetricsServer(ctx, 9091)
 
 	// Create a new instance of the SummationServer with outbox repository
 	if err := server.StartServerWithOutbox(50051, repo); err != nil {
