@@ -3,11 +3,16 @@ package main
 import (
 	"context"
 	"log"
+
+	"net/http"
+	API "service-a/cmd/api"
+	"service-a/cmd/api/connection"
 	DB "service-a/internal/database"
 	kafkaStructure "service-a/internal/kafka"
 	"service-a/internal/metrics"
 	"service-a/internal/outbox"
 	"service-a/internal/server"
+
 	"time"
 )
 
@@ -44,8 +49,28 @@ func main() {
 	// Start the HTTP server for Prometheus metrics
 	metrics.StartMetricsServer(ctx, 9091)
 
-	// Create a new instance of the SummationServer with outbox repository
-	if err := server.StartServerWithOutbox(50051, repo); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// -------- Open the GRPC Connection and define the API --------
+
+	client, conn, err := connection.GRPC_Connection()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer conn.Close()
+
+	// API
+	http.HandleFunc("/sum", API.SummationRequest(client))
+
+	// Start the gRPC server in a goroutine so it doesn't block
+	go func() {
+		if err := server.StartServerWithOutbox(50051, repo); err != nil {
+			log.Fatalf("Failed to start gRPC server: %v", err)
+		}
+	}()
+
+	// Start HTTP server for the API
+	log.Println("Starting HTTP server on port 8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatalf("Failed to start HTTP server: %v", err)
 	}
 }
