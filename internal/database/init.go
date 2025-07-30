@@ -21,6 +21,12 @@ func INIT_DB() *sql.DB {
 		log.Fatalf("Error opening database: %v", err)
 	}
 
+	// Test the database connection
+	if err := db.Ping(); err != nil {
+		log.Fatalf("Error connecting to database: %v", err)
+	}
+
+	log.Println("Successfully connected to database")
 	return db
 }
 
