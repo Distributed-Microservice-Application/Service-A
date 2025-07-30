@@ -32,20 +32,6 @@ func (f *FixedPartitionBalancer) Balance(msg kafka.Message, partitions ...int) i
 	return f.Partition
 }
 
-// // NewKafkaWriter creates a new Kafka writer with proper configuration
-// func NewKafkaWriter(topic string) *KafkaPublisher {
-// 	writer := &kafka.Writer{
-// 		Addr:         kafka.TCP("kafka:29092"), // Use internal Kafka address
-// 		Topic:        topic,
-// 		Balancer:     &kafka.LeastBytes{},
-// 		RequiredAcks: kafka.RequireOne, // Only wait for leader acknowledgment
-// 		Async:        true,             // Use asynchronous mode for better performance
-// 		Logger:      kafka.LoggerFunc(log.Printf),
-// 		ErrorLogger: kafka.LoggerFunc(log.Printf), // Added error logger for async errors
-// 	}
-// 	return &KafkaPublisher{Publisher: writer, Partition: 0} // Default to partition 0
-// }
-
 // NewKafkaWriterWithPartition creates a new Kafka writer with a specific partition
 func NewKafkaWriterWithPartition(topic string, partition int) *KafkaPublisher {
 	writer := &kafka.Writer{
