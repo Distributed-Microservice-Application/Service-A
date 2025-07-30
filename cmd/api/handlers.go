@@ -16,13 +16,22 @@ type RequestData struct {
 }
 
 type ResponseData struct {
-	Result int32 `json:"result"`
+	Result    int32  `json:"result"`
+	ServiceID string `json:"service_id"`
+	Timestamp string `json:"timestamp"`
 }
+
+const (
+	ServiceName = "SummationService"
+)
 
 func SummationRequest(client pb.SummationServiceClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var ServiceID string = r.RemoteAddr
+
 		// Set response headers
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Service-ID", ServiceID)
 
 		// Handle different HTTP methods
 		if r.Method != http.MethodPost {
@@ -38,32 +47,36 @@ func SummationRequest(client pb.SummationServiceClient) http.HandlerFunc {
 			// If JSON decode fails, use default values for testing
 			Data.A = 10
 			Data.B = 20
-			log.Printf("Using default values due to JSON decode error: %v", err)
+			log.Printf("[%s] Using default values due to JSON decode error: %v", ServiceID, err)
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
 
 		// ---------------------- Make the gRPC call ----------------------
-		log.Printf("Sending gRPC request with numbers: %d and %d", Data.A, Data.B)
+		log.Printf("[%s] Sending gRPC request with numbers: %d and %d", ServiceID, Data.A, Data.B)
 		result, err := client.CalculateSum(ctx, &pb.SummationRequest{A: int32(Data.A), B: int32(Data.B)})
 		if err != nil {
-			log.Printf("gRPC call failed: %v", err)
+			log.Printf("[%s] gRPC call failed: %v", ServiceID, err)
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{"error": "gRPC call failed"})
+			json.NewEncoder(w).Encode(map[string]string{"error": "gRPC call failed", "service_id": ServiceID})
 			return
 		}
 
-		log.Printf("Received sum from gRPC server: %d", result.Result)
+		log.Printf("[%s] Received sum from gRPC server: %d", ServiceID, result.Result)
 
-		// Send JSON response
-		response := ResponseData{Result: result.Result}
+		// Send JSON response with service identification
+		response := ResponseData{
+			Result:    result.Result,
+			ServiceID: ServiceID,
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("Failed to encode response: %v", err)
+			log.Printf("[%s] Failed to encode response: %v", ServiceID, err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		log.Println("HTTP API request completed successfully")
+		log.Printf("[%s] HTTP API request completed successfully from remote address %s", ServiceName, ServiceID)
 	}
 }

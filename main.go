@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"net/http"
+	"os"
 	API "service-a/cmd/api"
 	"service-a/cmd/api/connection"
 	DB "service-a/internal/database"
@@ -15,6 +16,21 @@ import (
 
 	"time"
 )
+
+// Get specific partition based on hostname
+func ExtractPartition(serviceHostname string) int {
+	var partition int = 0;
+	switch serviceHostname {
+	case "service-a-1":
+		partition = 0
+	case "service-a-2":
+		partition = 1
+	case "service-a-3":
+		partition = 2
+	}
+	log.Printf("Extracted partition %d for hostname %s", partition, serviceHostname)
+	return partition
+}
 
 func main() {
 	log.Println("Starting Summation Service")
@@ -29,8 +45,13 @@ func main() {
 	// Initialize outbox repository
 	repo := outbox.NewRepository(db)
 
-	// Initialize Kafka writer
-	writer := kafkaStructure.NewKafkaWriter("user-events")
+	// ------------ Initialize Kafka writer with specific partition based on hostname ------------
+
+	serviceHostname, _ := os.Hostname()
+	var partition int = ExtractPartition(serviceHostname)
+
+	log.Printf("Service hostname: %s, assigned to partition: %d", serviceHostname, partition)
+	writer := kafkaStructure.NewKafkaWriterWithPartition("user-events", partition)
 	if writer == nil {
 		log.Fatal("Failed to create Kafka writer")
 	}
@@ -58,7 +79,7 @@ func main() {
 
 	defer conn.Close()
 
-	// API
+	// ------ API ------
 	http.HandleFunc("/sum", API.SummationRequest(client))
 
 	// Start the gRPC server in a goroutine so it doesn't block
@@ -69,7 +90,7 @@ func main() {
 	}()
 
 	// Start HTTP server for the API
-	log.Println("Starting HTTP server on port 8080")
+	log.Printf("Starting HTTP server on port 8080, hostname: %s", serviceHostname)
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatalf("Failed to start HTTP server: %v", err)
 	}

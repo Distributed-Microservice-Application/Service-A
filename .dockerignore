@@ -1,0 +1,34 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test files
+*_test.go
+test/
+
+# Node.js (if present)
+node_modules
+package*.json
+
+# Build artifacts
+service-a
+*.exe
+
+# Docker
+Dockerfile
+.dockerignore

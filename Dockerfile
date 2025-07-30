@@ -6,12 +6,14 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -o service-a main.go
+# Build with optimizations for smaller binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o service-a main.go
 
-# Run stage
-FROM alpine:latest
-WORKDIR /root/
+# Run stage - use distroless for even smaller size
+FROM gcr.io/distroless/static-debian11:nonroot
+WORKDIR /
 COPY --from=builder /app/service-a .
-# gRRPC & Prometheus
+# gRPC & Prometheus
 EXPOSE 50051 9091 
-CMD ["./service-a"]
+USER nonroot:nonroot
+ENTRYPOINT ["./service-a"]

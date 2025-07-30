@@ -19,22 +19,31 @@ type Message struct {
 
 type KafkaPublisher struct {
 	Publisher *kafka.Writer
+	Partition int // Specific partition for this publisher
 }
 
-// NewKafkaWriter creates a new Kafka writer with proper configuration
-func NewKafkaWriter(topic string) *KafkaPublisher {
+// FixedPartitionBalancer always sends messages to a specific partition
+type FixedPartitionBalancer struct {
+	Partition int
+}
+
+func (f *FixedPartitionBalancer) Balance(msg kafka.Message, partitions ...int) int {
+	// Always return the fixed partition
+	return f.Partition
+}
+
+// NewKafkaWriterWithPartition creates a new Kafka writer with a specific partition
+func NewKafkaWriterWithPartition(topic string, partition int) *KafkaPublisher {
 	writer := &kafka.Writer{
-		Addr:         kafka.TCP("localhost:9092"),
+		Addr:         kafka.TCP("kafka:29092"), // Use internal Kafka address
 		Topic:        topic,
-		Balancer:     &kafka.LeastBytes{},
-		RequiredAcks: kafka.RequireOne, // Only wait for leader acknowledgment
-		Async:        true,             // Use asynchronous mode for better performance
-		// BatchTimeout: 100 * time.Millisecond, // Increased batch timeout for better batching
-		// BatchSize:    100,                    // Number of messages to batch before sending
-		Logger:      kafka.LoggerFunc(log.Printf),
-		ErrorLogger: kafka.LoggerFunc(log.Printf), // Added error logger for async errors
+		Balancer:     &FixedPartitionBalancer{Partition: partition}, // Use custom balancer for fixed partition
+		RequiredAcks: kafka.RequireOne,                              // Only wait for leader acknowledgment
+		Async:        true,                                          // Use asynchronous mode for better performance
+		Logger:       kafka.LoggerFunc(log.Printf),
+		ErrorLogger:  kafka.LoggerFunc(log.Printf), // Added error logger for async errors
 	}
-	return &KafkaPublisher{Publisher: writer}
+	return &KafkaPublisher{Publisher: writer, Partition: partition}
 }
 
 // SendMessage sends a message to the Kafka topic with proper error handling
@@ -50,10 +59,12 @@ func (p *KafkaPublisher) SendMessage(msg int32, ctx context.Context) error {
 		return fmt.Errorf("failed to marshal message: %v", err)
 	}
 
-	// Create a Kafka message with a unique key
+	// Create a Kafka message with a unique key - don't set partition here, let balancer handle it
 	kafkaMessage := kafka.Message{
 		Key:   []byte(uuid.New().String()),
 		Value: messageBytes,
+		// Remove Partition field - let the FixedPartitionBalancer handle it
+
 		// Add headers for better debugging
 		Headers: []kafka.Header{
 			{
@@ -64,6 +75,10 @@ func (p *KafkaPublisher) SendMessage(msg int32, ctx context.Context) error {
 				Key:   "timestamp",
 				Value: []byte(time.Now().Format(time.RFC3339)),
 			},
+			{
+				Key:   "partition",
+				Value: []byte(fmt.Sprintf("%d", p.Partition)),
+			},
 		},
 	}
 
@@ -73,6 +88,6 @@ func (p *KafkaPublisher) SendMessage(msg int32, ctx context.Context) error {
 		return fmt.Errorf("failed to write message to Kafka: %v", err)
 	}
 
-	log.Printf("Successfully sent message to Kafka topic %s: %+v", p.Publisher.Topic, message)
+	log.Printf("Successfully sent message to Kafka topic %s (partition %d): %+v", p.Publisher.Topic, p.Partition, message)
 	return nil
 }
