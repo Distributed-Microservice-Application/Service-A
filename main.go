@@ -14,7 +14,7 @@ import (
 	"service-a/internal/outbox"
 	"service-a/internal/server"
 
-	"time"
+	// "time"
 )
 
 // Get specific partition based on hostname
@@ -58,14 +58,14 @@ func main() {
 	defer writer.Publisher.Close()
 
 	// Initialize OutboxPublisher with 3-second check interval
-	publisher := outbox.NewOutboxPublisher(repo, writer, 3*time.Second)
+	// publisher := outbox.NewOutboxPublisher(repo, writer, 3*time.Second)
 
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Start the OutboxPublisher in a goroutine
-	go publisher.Start(ctx)
+	// go publisher.Start(ctx)
 
 	// Start the HTTP server for Prometheus metrics
 	metrics.StartMetricsServer(ctx, 9091)
